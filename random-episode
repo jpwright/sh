@@ -1,0 +1,24 @@
+#!/bin/bash
+
+FILENAME=
+
+if [ "$1" == "adventure-time" ]; then
+  FILENAME=$(find /media/jason/e/videos/TV/Adventure\ Time -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
+elif [ "$1" == "futurama" ]; then
+  FILENAME=$(find /media/jason/e/videos/TV/Futurama -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
+elif [ "$1" == "portlandia" ]; then
+  FILENAME=$(find /media/jason/e/videos/TV/Portlandia -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
+elif [ "$1" == "courage" ]; then
+  FILENAME=$(find /media/jason/e/videos/TV/Courage\ The\ Cowardly\ Dog -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
+elif [ "$1" == "dexters-lab" ]; then
+  FILENAME=$(find /media/jason/e/videos/TV/Dexter\'s\ Laboratory -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
+elif [ "$1" == "powerpuff-girls" ]; then
+  FILENAME=$(find /media/jason/e/videos/TV/Powerpuff\ Girls -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
+elif [ "$1" == "cartoons" ]; then
+  FILENAME=$(find /media/jason/e/videos/TV/Courage\ The\ Cowardly\ Dog /media/jason/e/videos/TV/Dexter\'s\ Laboratory /media/jason/e/videos/TV/Powerpuff\ Girls -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
+else
+  FILENAME=$(find /media/jason/e/videos/TV -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
+fi
+
+echo $FILENAME
+eval vlc -f '"'$FILENAME'"'

@@ -1,0 +1,165 @@
+#!/bin/bash
+
+usage()
+{
+cat << EOF
+usage: $0 options
+
+video-highlights: create highlight reel by cutting video at regular intervals
+
+OPTIONS:
+   -h, --help             Show this message
+   -i, --input            Input file. Can be a wide variety of formats, try 'avconv -formats' to see a list.
+   -o, --output           Output file. 
+   -s, --start            Start offset, in number of seconds. Optional.
+   -d, --duration         Duration of each interval. Should be a number of seconds (decimals OK). If added, this will overwrite blank durations in the timestamps file.
+   -p, --period           Period between intervals
+   -t, --timestamps       Timestamps file input. If added the script will ignore the "start timestamp". Should be a text file where each line is a snippet, with the first 7 characters being the timestamp in h:mm:ss form, followed by a space, followed by a number representing number of seconds (can be a decimal)
+   -v, --verbose          Verbose output.
+   
+   
+EOF
+exit 0
+}
+
+INPUT=
+OUTPUT=
+OUT_FILE='part-%04d.mp4'
+TIMESTAMPS=
+TIMESTAMPS_SET=false
+CHUNK_LEN=
+CHUNK_SPACE=
+CSTART=0
+CSTOP=0
+CSTOP_SET=false
+VERBOSE=false
+
+params="$(getopt -o hvi:o:s:d:t:p:z: -l help,verbose,input:,output:,start:,duration:,timestamps:,period:,stop: --name "$0" -- "$@")"
+eval set -- "$params"
+
+while true
+do
+    case "$1" in
+        -h|--help)
+            usage
+            break
+            ;;
+        -i|--input)
+            IN_FILE=$2
+            shift 2
+            ;;
+        -o|--output)
+            OUTPUT=$2
+            shift 2
+            ;;
+        -s|--start)
+            CSTART=$2
+            shift 2
+            ;;
+        -d|--duration)
+            CHUNK_LEN=$2
+            shift 2
+            ;;
+        -p|--period)
+            CHUNK_SPACE=$2
+            shift 2
+            ;;
+        -v|--verbose)
+            VERBOSE=true
+            shift
+            ;;
+        -t|--timestamps)
+	    TIMESTAMPS=$2
+	    TIMESTAMPS_SET=true
+	    shift 2
+	    ;;
+        -z|--stop)
+	    CSTOP=$2
+	    CSTOP_SET=true
+	    shift 2
+	    ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Not implemented: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+TDIR="$(mktemp -d)"
+echo $TDIR
+# trap "{ cd - ; rm -rf $TDIR; exit 255; }" SIGINT
+
+rm $OUTPUT
+
+if $VERBOSE
+then
+	echo "VIDEO-HIGHLIGHTS: Starting..."
+	echo "VIDEO-HIGHLIGHTS: Created temporary directory at $TDIR"
+fi
+
+
+DURATION_HMS=$(ffmpeg -i "$IN_FILE" 2>&1 | grep Duration | cut -f 4 -d ' ')
+DURATION_H=$(echo "$DURATION_HMS" | cut -d ':' -f 1)
+DURATION_M=$(echo "$DURATION_HMS" | cut -d ':' -f 2)
+DURATION_S=$(echo "$DURATION_HMS" | cut -d ':' -f 3 | cut -d '.' -f 1)
+let "DURATION = ( 10#$DURATION_H * 60 + 10#$DURATION_M ) * 60 + 10#$DURATION_S"
+ 
+if [ "$DURATION" = '0' ] ; then
+        echo "Invalid input video"
+        usage
+        exit 1
+fi
+ 
+if [ "$CHUNK_LEN" = "0" ] ; then
+        echo "Invalid chunk size"
+        usage
+        exit 2
+fi
+ 
+if [ -z "$OUT_FILE_FORMAT" ] ; then
+        FILE_EXT=$(echo "$IN_FILE" | sed 's/^.*\.\([a-zA-Z0-9]\+\)$/\1/')
+        FILE_NAME=$(echo "$IN_FILE" | sed 's/^\(.*\)\.[a-zA-Z0-9]\+$/\1/')
+        OUT_FILE_FORMAT="${FILE_NAME}-%03d.${FILE_EXT}"
+        echo "Using default output file format : $OUT_FILE_FORMAT"
+fi
+ 
+N='1'
+echo $CSTART
+OFFSET=$CSTART
+let 'N_FILES = DURATION / (CHUNK_LEN + CHUNK_SPACE) + 1'
+
+if $CSTOP_SET
+then
+  DURATION=$CSTOP
+fi
+
+if $TIMESTAMPS_SET
+then
+  while read p; do
+    echo $p
+    OUT_FILE=$(printf "$OUT_FILE_FORMAT" "$N")
+    avconv -ss "$p" -i "$IN_FILE" -vcodec copy -acodec copy -t "$CHUNK_LEN" "$TDIR"/"$OUT_FILE"
+    let "N = N + 1"
+  done < $TIMESTAMPS
+else
+  while [ "$OFFSET" -lt "$DURATION" ] ; do
+	  OUT_FILE=$(printf "$OUT_FILE_FORMAT" "$N")
+	  echo "writing $OUT_FILE ($N/$N_FILES)..."
+	  avconv -ss "$OFFSET" -i "$IN_FILE" -vcodec copy -acodec copy -t "$CHUNK_LEN" "$TDIR"/"$OUT_FILE"
+	  #ffmpeg -i "$OUT_FILE".mp4 "$OUT_FILE"
+	  #rm "$OUT_FILE".mp4
+	  let "N = N + 1"
+	  let "OFFSET = OFFSET + CHUNK_LEN + CHUNK_SPACE"
+  done
+fi
+
+CONCAT="files='$TDIR/*.mp4'; for i in \$files; do MP4Box -cat \$i $OUTPUT; done"
+echo $CONCAT
+eval $CONCAT
+rm -rf $TDIR
+
+exit 0
