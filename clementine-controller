@@ -1,0 +1,5 @@
+#!/bin/bash
+
+FILENAME=$(find /media/jason/e/music/.playlists -regex ".*morning-jazz-[0-9]*\.xspf" -type f | sort -R | tail -1)
+echo $FILENAME
+eval clementine -l '"'$FILENAME'"'

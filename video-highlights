@@ -14,6 +14,7 @@ OPTIONS:
    -s, --start            Start offset, in number of seconds. Optional.
    -d, --duration         Duration of each interval. Should be a number of seconds (decimals OK). If added, this will overwrite blank durations in the timestamps file.
    -p, --period           Period between intervals
+   -a, --additional       Add additional timestamps.
    -t, --timestamps       Timestamps file input. If added the script will ignore the "start timestamp". Should be a text file where each line is a snippet, with the first 7 characters being the timestamp in h:mm:ss form, followed by a space, followed by a number representing number of seconds (can be a decimal)
    -v, --verbose          Verbose output.
    
@@ -27,6 +28,8 @@ OUTPUT=
 OUT_FILE='part-%04d.mp4'
 TIMESTAMPS=
 TIMESTAMPS_SET=false
+ADDITIONAL=
+ADDITIONAL_SET=false
 CHUNK_LEN=
 CHUNK_SPACE=
 CSTART=0
@@ -34,7 +37,7 @@ CSTOP=0
 CSTOP_SET=false
 VERBOSE=false
 
-params="$(getopt -o hvi:o:s:d:t:p:z: -l help,verbose,input:,output:,start:,duration:,timestamps:,period:,stop: --name "$0" -- "$@")"
+params="$(getopt -o hvi:o:s:d:t:a:p:z: -l help,verbose,input:,output:,start:,duration:,timestamps:,additional:,period:,stop: --name "$0" -- "$@")"
 eval set -- "$params"
 
 while true
@@ -73,6 +76,11 @@ do
 	    TIMESTAMPS_SET=true
 	    shift 2
 	    ;;
+	-a|--additional)
+	    ADDITIONAL=$2
+	    ADDITIONAL_SET=true
+	    shift 2
+	    ;;
         -z|--stop)
 	    CSTOP=$2
 	    CSTOP_SET=true
@@ -102,7 +110,7 @@ then
 fi
 
 
-DURATION_HMS=$(ffmpeg -i "$IN_FILE" 2>&1 | grep Duration | cut -f 4 -d ' ')
+DURATION_HMS=$(avconv -i "$IN_FILE" 2>&1 | grep Duration | cut -f 4 -d ' ')
 DURATION_H=$(echo "$DURATION_HMS" | cut -d ':' -f 1)
 DURATION_M=$(echo "$DURATION_HMS" | cut -d ':' -f 2)
 DURATION_S=$(echo "$DURATION_HMS" | cut -d ':' -f 3 | cut -d '.' -f 1)
@@ -155,6 +163,10 @@ else
 	  let "N = N + 1"
 	  let "OFFSET = OFFSET + CHUNK_LEN + CHUNK_SPACE"
   done
+  if $ADDITIONAL_SET
+  then
+    avconv -ss "$ADDITIONAL" -i "$IN_FILE" -vcodec copy -acodec copy -t "10" "$TDIR"/"$OUT_FILE"
+  fi
 fi
 
 CONCAT="files='$TDIR/*.mp4'; for i in \$files; do MP4Box -cat \$i $OUTPUT; done"

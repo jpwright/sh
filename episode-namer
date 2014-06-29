@@ -1,0 +1,92 @@
+#!/usr/bin/python
+
+import string
+from bs4 import BeautifulSoup
+import urllib2
+import mechanize
+import sys
+import os
+
+br = mechanize.Browser()
+br.set_handle_equiv(True)
+br.set_handle_gzip(False)
+br.set_handle_redirect(True)
+br.set_handle_referer(True)
+br.set_handle_robots(False)
+
+show = sys.argv[1]
+season = sys.argv[2]
+
+#print show
+#print season
+
+rootdir = '/media/jason/e/videos/TV/'+show+'/Season '+season
+
+files = os.listdir(rootdir)
+
+for f in files:
+  fileName, fileExtension = os.path.splitext(f)
+  if fileExtension in ['.srt', '.txt', '.smi', '.part']:
+    os.remove(rootdir+'/'+f)
+    
+files = os.listdir(rootdir)
+
+url = "http://www.imdb.com/find?q="+show.replace(' ','%20')+"&s=tt&ttype=tv&ref_=fn_tv"
+
+#print url
+
+br.open(url)
+data = br.response()
+soup = BeautifulSoup(data)
+# print soup.prettify()
+
+result = soup.find("td", {"class": "result_text"})
+#print result
+# print uls
+
+resultsoup = BeautifulSoup(result.encode('utf-8').strip())
+link = resultsoup.find("a")
+href = link['href']
+
+#print href
+
+href_components = href.split('/')
+
+showid = href_components[2]
+
+#print showid
+
+showurl = "http://www.imdb.com/title/"+showid+"/episodes?season="+season
+
+#print showurl
+
+br.open(showurl)
+data = br.response()
+soup = BeautifulSoup(data)
+
+episodes = soup.findAll("a", {"itemprop": "name"})
+seasonchars = "%02d" % (int(season),)
+
+episodenumbers = soup.findAll("meta", {"itemprop": "episodeNumber"})
+
+#print episodenumbers
+
+#print seasonchars
+
+files = sorted(files)
+
+if len(episodes) == len(files):
+
+  for i in range(0, len(episodes)):
+    episode = episodes[i]
+    episodenum = episodenumbers[i]
+    episodechars = "%02d" % (int(episodenum['content']),)
+    f = files[i]
+    fileName, fileExtension = os.path.splitext(rootdir+'/'+f)
+    print f + " renamed to S"+seasonchars+'E'+episodechars+' - '+episode.text.encode('utf-8')+fileExtension
+    #print fileName
+    #print fileExtension
+    os.rename(rootdir+'/'+f, rootdir+'/S'+seasonchars+'E'+episodechars+' - '+episode.text.encode('utf-8')+fileExtension)
+  
+else:
+  print "number of episodes does not agree with IMDB ("+str(len(files))+" instead of "+str(len(episodes))+")"
