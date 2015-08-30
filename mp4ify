@@ -1,0 +1,17 @@
+#!/bin/bash 
+echo $1
+VIDEO=$1
+
+VIDEO=${VIDEO/wmv/mp4}
+VIDEO=${VIDEO/avi/mp4}
+VIDEO=${VIDEO/mkv/mp4}
+VIDEO=${VIDEO/flv/mp4}
+VIDEO=${VIDEO/mpg/mp4}
+VIDEO=${VIDEO/mov/mp4}
+VIDEO=${VIDEO/m4v/mp4}
+VIDEO=${VIDEO/webm/mp4}
+
+echo "modified name:"
+echo $VIDEO
+
+avconv -i "$1" -strict experimental "$VIDEO"

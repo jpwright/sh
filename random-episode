@@ -20,8 +20,14 @@ elif [ "$1" == "powerpuff-girls" ]; then
   FILENAME=$(find /media/jason/e/videos/TV/Powerpuff\ Girls -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
 elif [ "$1" == "scrubs" ]; then
   FILENAME=$(find /media/jason/e/videos/TV/Scrubs -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
+elif [ "$1" == "south-park" ]; then
+  FILENAME=$(find /media/jason/e/videos/TV/South\ Park -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
 elif [ "$1" == "cartoons" ]; then
   FILENAME=$(find /media/jason/e/videos/TV/Courage\ The\ Cowardly\ Dog /media/jason/e/videos/TV/Dexter\'s\ Laboratory /media/jason/e/videos/TV/Powerpuff\ Girls -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
+elif [ "$1" == "freaks-and-geeks" ]; then
+  FILENAME=$(find /media/jason/e/videos/TV/Freaks\ and\ Geeks -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
+elif [ "$1" == "pokemon" ]; then
+  FILENAME=$(find /media/jason/e/videos/TV/Pokemon -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
 else
   FILENAME=$(find /media/jason/e/videos/TV -regex ".*\.\(mkv\|mp4\|mov\|avi\|wmv\)" -type f | sort -R | tail -1)
 fi

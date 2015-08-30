@@ -1,0 +1,89 @@
+#!/bin/bash
+
+usage()
+{
+cat << EOF
+usage: $0 options
+
+TIMELAPSE! Create video from sequence of images
+
+OPTIONS:
+   -h, --help             Show this message
+   -o, --output           Output file.
+   -f, --fps              Frames per second for the output gif. Default is 24. Max is 48.
+   -v, --verbose          Verbose output.
+   
+   
+EOF
+exit 0
+}
+
+OUTPUT=
+FPS=24
+VERBOSE=false
+
+params="$(getopt -o hf:vo: -l help,fps:,verbose,output: --name "$0" -- "$@")"
+eval set -- "$params"
+
+while true
+do
+    case "$1" in
+        -h|--help)
+            usage
+            break
+            ;;
+        -o|--output)
+            OUTPUT=$2
+            shift 2
+            ;;
+        -f|--fps)
+            FPS=$2
+            shift 2
+            ;;
+        -v|--verbose)
+            VERBOSE=true
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Not implemented: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+TDIR="$(mktemp -d)"
+# echo $TDIR
+# trap "{ cd - ; rm -rf $TDIR; exit 255; }" SIGINT
+ORIGDIR="$(pwd)"
+
+if $VERBOSE
+then
+	echo "TIMELAPSE: Starting..."
+	echo "TIMELAPSE: Created temporary directory at $TDIR"
+fi
+
+N=1; for X in *.jpg; do cp $X $TDIR/$N.jpg; N=$(($N+1)); done
+cd $TDIR
+for i in *.jpg;do mv $i `zeropad $i`; done
+cd $ORIGDIR
+
+if $VERBOSE
+then
+	echo "TIMELAPSE: Processing frames..."
+fi
+
+ffmpeg -framerate $FPS -i $TDIR/%07d.jpg -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p $OUTPUT
+
+rm -rf $TDIR
+
+if $VERBOSE
+then
+	echo "TIMELAPSE: Done!"
+fi
+
+exit 0
+

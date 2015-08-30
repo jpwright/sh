@@ -1,0 +1,309 @@
+#!/bin/bash
+
+usage()
+{
+cat << EOF
+usage: $0 options
+
+GIFFY! Create animated gifs from video files.
+
+OPTIONS:
+   -h, --help             Show this message
+   -i, --input            Input file. Can be a wide variety of formats, try 'avconv -formats' to see a list.
+   -o, --output           Output file. 
+   -s, --start            Start timestamp. Can be a number of seconds or in hh:mmss[.xxx] form.
+   -d, --duration         Duration. Should be a number of seconds (decimals OK) Default 3
+   -r, --resize           Resize operator. Can be a percentage (50%) or a scale factor (0.5). Default is 100%.
+   -x, --crop             Crop. Should be in the following form: x1,y1-x2,y2 where x,y are the coordinates of the top left (1) and bottom right (2) points of the bounding box. Takes place BEFORE resizing.
+   -t, --caption          Caption operator. Should be a string, for example '-caption 'caption words here''. You can insert linebreaks into the caption by inserting '\n'.
+   -l, --caption-height   Line height of caption, either as a percentage or in number of pixels.
+   -f, --fps              Frames per second for the output gif. Default is 24. Max is 48.
+   -z, --optimize         Optimization level. Default (and maximum) is 3.
+   -c, --compress         Enable compression to 256 colors. Will reduce output filesize at the expense of quality.
+   -a, --trimstart       Trim starting few frames (for videos with bad codecs)
+   -v, --verbose          Verbose output.
+   
+   
+EOF
+exit 0
+}
+
+INPUT=
+OUTPUT=
+START=
+DURATION=3
+RESIZEFLAG=false
+RESIZE=
+RESIZEPCT="100%"
+CROPFLAG=false
+CROP=
+CAPTIONFLAG=false
+CAPTION=
+CAPTIONPCTFLAG=false
+CAPTIONHEIGHT=14
+FPS=24
+OPTIMIZE=3
+VERBOSE=false
+COMPRESS=false
+TRIMSTART=false
+
+params="$(getopt -o hr:x:ct:l:f:z:vai:o:s:d: -l help,resize:,crop:,compress,caption:,caption-height:,fps:,optimize:,verbose,input:,trimstart,output:,start:,duration: --name "$0" -- "$@")"
+eval set -- "$params"
+
+while true
+do
+    case "$1" in
+        -h|--help)
+            usage
+            break
+            ;;
+        -i|--input)
+            INPUT=$2
+            shift 2
+            ;;
+        -o|--output)
+            OUTPUT=$2
+            shift 2
+            ;;
+        -s|--start)
+            DURATION_HMS=$(avconv -i "$INPUT" 2>&1 | grep Duration | cut -f 4 -d ' ')
+            DURATION_H=$(echo "$DURATION_HMS" | cut -d ':' -f 1)
+            DURATION_M=$(echo "$DURATION_HMS" | cut -d ':' -f 2)
+            DURATION_S=$(echo "$DURATION_HMS" | cut -d ':' -f 3 | cut -d '.' -f 1)
+            let "DURATION = ( 10#$DURATION_H * 60 + 10#$DURATION_M ) * 60 + 10#$DURATION_S"
+            
+            START=$2
+            
+            if [ "$2" == "half" ]
+            then
+              let "START = ( $DURATION / 2 )"
+            fi
+            if [ "$2" == "1/7" ]
+            then
+              let "START = ( 1 * $DURATION / 7 )"
+            fi
+            if [ "$2" == "2/7" ]
+            then
+              let "START = ( 2 * $DURATION / 7 )"
+            fi
+            if [ "$2" == "3/7" ]
+            then  
+              let "START = ( 3 * $DURATION / 7 )"
+            fi
+            if [ "$2" == "4/7" ]
+            then  
+              let "START = ( 4 * $DURATION / 7 )"
+            fi
+            if [ "$2" == "5/7" ]
+            then  
+              let "START = ( 5 * $DURATION / 7 )"
+            fi
+            if [ "$2" == "6/7" ]
+            then  
+              let "START = ( 6 * $DURATION / 7 )"
+            fi
+            shift 2
+            ;;
+        -d|--duration)
+            DURATION=$2
+            shift 2
+            ;;
+        -r|--resize)
+	    RESIZEFLAG=true
+            RESIZERAW=$2
+            RESIZELASTCHAR=$(echo $RESIZERAW | tail -c 2)
+            if [ "$RESIZELASTCHAR" == "%" ]
+            then
+                RESIZEPCT=$RESIZERAW
+            	RESIZELEN=$(expr length $2)
+            	RESIZE=${RESIZERAW:0:-1}
+            	echo "GIFFY: Resize is $RESIZE"
+            	RESIZE=$(echo "$RESIZE/100.0" | bc -l)
+            	echo "GIFFY: Converted resize argument of $RESIZERAW to scale factor of $RESIZE"
+            elif [ "$RESIZELASTCHAR" == "m" ]
+            then
+            	SIZE_RAW=$(avconv -i "$INPUT" 2>&1 | grep Video | cut -f 3 -d ',' | cut -f 1 -d '[')
+            	SIZE_RAW_LENGTH=$(expr length $SIZE_RAW)
+            	SIZE=${SIZE_RAW:0:-1}
+            	SIZE_W=$(echo $SIZE | cut -f 1 -d 'x')
+            	RESIZEPCT=$RESIZERAW
+            	RESIZELEN=$(expr length $2)
+            	RESIZE=${RESIZERAW:0:-1}
+            	RESIZEAMT=$(echo "100.0 * $RESIZE / $SIZE_W " | bc -l)
+            	RESIZEPCT="$RESIZEAMT%"
+            	if $VERBOSE
+            	then
+            	  echo "GIFFY: Converted resize argument of $RESIZE to scale factor of $RESIZEPCT"
+            	fi
+            else
+            	RESIZE=$2
+            	RESIZEPCT=$(echo "$RESIZE*100.0" | bc -l)
+            	RESIZEPCT="$RESIZEPCT%"
+            fi
+            shift 2
+            ;;
+        -x|--crop)
+            CROPFLAG=true
+	    CROP=$2
+            shift 2
+            ;;
+        -t|--caption)
+            CAPTION=$2
+            CAPTIONFLAG=true
+            shift 2
+            ;;
+        -l|--caption-height)
+            CAPTIONRAW=$2
+            CAPTIONLASTCHAR=$(echo $CAPTIONRAW | tail -c 2)
+            if [ "$CAPTIONLASTCHAR" == "%" ]
+            then
+            	CAPTIONPCTFLAG=true
+            	CAPTIONHEIGHTLEN=$(expr length $2)
+            	CAPTIONHEIGHT=${CAPTIONRAW:0:-1}
+            else
+            	CAPTIONPCTFLAG=false
+            	CAPTIONHEIGHT=$2
+            fi
+            shift 2
+            ;;
+        -f|--fps)
+            FPS=$2
+            shift 2
+            ;;
+        -z|--optimize)
+            OPTIMIZE=$2
+            shift 2
+            ;;
+        -a|--trimstart)
+            TRIMSTART=true
+            shift 1
+            ;;
+        -v|--verbose)
+            VERBOSE=true
+            shift
+            ;;
+        -c|--compress)
+            COMPRESS=true
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Not implemented: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+TDIR="$(mktemp -d)"
+# echo $TDIR
+# trap "{ cd - ; rm -rf $TDIR; exit 255; }" SIGINT
+
+if $VERBOSE
+then
+	echo "GIFFY: Starting..."
+	echo "GIFFY: Created temporary directory at $TDIR"
+fi
+
+if $VERBOSE
+then
+	avconv -ss $START -i $INPUT -t $DURATION -vsync 1 -an $TDIR'/%4d.png'
+else
+	avconv -i $INPUT -ss $START -t $DURATION -vsync 1 -an $TDIR'/%4d.png' -loglevel 'quiet' > /dev/null
+fi
+
+if $VERBOSE
+then
+	echo "GIFFY: Conversion completed, processing frames..."
+fi
+
+if $RESIZEFLAG
+then
+	if $VERBOSE
+	then
+		echo "GIFFY: Resizing, percentage $RESIZEPCT..."
+	fi
+	for i in $TDIR/*.png; do convert "$i" -resize $RESIZEPCT "${i%.png}.gif"; done
+fi
+
+#old resize method here
+
+DELAY="$((100/$FPS))"
+MINDELAY=2
+if [ "$DELAY" -lt "$MINDELAY" ]
+then
+	DELAY=$MINDELAY
+fi
+
+if $COMPRESS
+then
+	if $CROPFLAG
+	then
+	  if $VERBOSE
+	  then
+	    echo "GIFFY: Animating with compression and cropping..."
+	  fi
+	  gifsicle --delay=$DELAY --optimize=$OPTIMIZE --loop --colors 256 --color-method blend-diversity --crop "$CROP" --no-warnings $TDIR/*.gif  > $OUTPUT
+	else
+	  if $VERBOSE
+	  then
+	    echo "GIFFY: Animating with compression..."
+	  fi
+	  gifsicle --delay=$DELAY --optimize=$OPTIMIZE --loop --colors 256 --color-method blend-diversity --no-warnings $TDIR/*.gif > $OUTPUT
+	fi
+else
+	if $CROPFLAG
+	then
+	  if $VERBOSE
+	  then
+	    echo "GIFFY: Animating with cropping..."
+	  fi
+	  gifsicle --delay=$DELAY --optimize=$OPTIMIZE --loop --crop $CROP --no-warnings $TDIR/*.gif > $OUTPUT
+	else
+	  if $VERBOSE
+	  then
+	    echo "GIFFY: Animating..."
+	  fi
+	  gifsicle --delay=$DELAY --optimize=$OPTIMIZE --loop --no-warnings $TDIR/*.gif > $OUTPUT
+	fi
+fi
+
+
+
+if $CAPTIONFLAG
+then
+	if $VERBOSE
+	then
+		echo "GIFFY: Captioning..."
+	fi
+	if $CAPTIONPCTFLAG
+	then
+		IMAGEHEIGHT=$(convert $OUTPUT -print "%h" /dev/null)
+		CAPTIONHEIGHT=$(($CAPTIONHEIGHT * $IMAGEHEIGHT / 100))
+	fi
+	convert -gravity south -stroke '#000C' -strokewidth 5 -font Helvetica-Bold -pointsize "$CAPTIONHEIGHT" -annotate 0 "$CAPTION" -stroke  none -fill white -font Helvetica-Bold -pointsize "$CAPTIONHEIGHT" -annotate 0 "$CAPTION" "$OUTPUT" "$OUTPUT"
+fi
+
+if $TRIMSTART
+then
+  let i=0
+  while [[ $i -lt 15  ]]; do
+    gifsicle $OUTPUT --delete "#0" -o $OUTPUT
+
+    let i=i+1 
+  done
+fi
+
+#convert $OUTPUT -fuzz 1.6% -layers Optimize -type Palette -quality 90% $OUTPUT 
+
+rm -rf $TDIR
+
+if $VERBOSE
+then
+	echo "GIFFY: Done!"
+fi
+
+exit 0
+

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 import string
 from bs4 import BeautifulSoup
@@ -6,6 +7,7 @@ import urllib2
 import mechanize
 import sys
 import os
+import re
 
 br = mechanize.Browser()
 br.set_handle_equiv(True)
@@ -16,6 +18,12 @@ br.set_handle_robots(False)
 
 show = sys.argv[1]
 season = sys.argv[2]
+
+if len(sys.argv) > 3:
+  test = False
+else:
+  test = True
+  print '---This is a test run. Run it again with a third argument to run for real.---'
 
 #print show
 #print season
@@ -83,10 +91,29 @@ if len(episodes) == len(files):
     episodechars = "%02d" % (int(episodenum['content']),)
     f = files[i]
     fileName, fileExtension = os.path.splitext(rootdir+'/'+f)
-    print f + " renamed to S"+seasonchars+'E'+episodechars+' - '+episode.text.encode('utf-8')+fileExtension
+    episodetext = episode.text.encode('utf-8').replace('/',' ∕ ')
+    print f + " renamed to S"+seasonchars+'E'+episodechars+' - '+episodetext+fileExtension
     #print fileName
     #print fileExtension
-    os.rename(rootdir+'/'+f, rootdir+'/S'+seasonchars+'E'+episodechars+' - '+episode.text.encode('utf-8')+fileExtension)
+    if not test:
+      os.rename(rootdir+'/'+f, rootdir+'/S'+seasonchars+'E'+episodechars+' - '+episodetext+fileExtension)
   
 else:
   print "number of episodes does not agree with IMDB ("+str(len(files))+" instead of "+str(len(episodes))+")"
+  se = re.compile(".*S[0-9]{2,2}E[0-9]{2,2}.*")
+  for f in files:
+    fileName, fileExtension = os.path.splitext(rootdir+'/'+f)
+    if (se.match(fileName)):
+      slug = re.findall(r"(S[0-9]{2,2}E[0-9]{2,2})", fileName)
+      slug = slug[0]
+      #print slug
+      episodenum = int(slug[4:6])
+      episodechars = "%02d" % (episodenum)
+      episode = episodes[episodenum-1]
+      episodetext = episode.text.encode('utf-8').replace('/',' ∕ ')
+      print f + " renamed to S"+seasonchars+'E'+episodechars+' - '+episodetext+fileExtension
+      if not test:
+	os.rename(rootdir+'/'+f, rootdir+'/S'+seasonchars+'E'+episodechars+' - '+episodetext+fileExtension)
+  
+	  
+    
